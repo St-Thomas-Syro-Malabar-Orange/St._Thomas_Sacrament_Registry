@@ -128,6 +128,7 @@ input:focus,select:focus{border-color:var(--gold);}
 /* TOAST */
 .login-overlay{position:fixed;inset:0;background:var(--ink);display:flex;align-items:center;justify-content:center;z-index:500;}
 .login-card{background:var(--white);border-radius:12px;padding:2.5rem;width:340px;box-shadow:var(--shadow);text-align:center;font-family:'Inter',sans-serif;}
+.login-logo{width:72px;height:auto;margin:0 auto .9rem;display:block;}
 .login-card h2{font-family:'Cormorant Garamond',serif;color:var(--ink);font-size:1.7rem;margin-bottom:.3rem;}
 .login-card .login-sub{color:var(--muted);font-size:.78rem;margin-bottom:1.5rem;line-height:1.4;}
 .login-card input{width:100%;padding:.6rem .75rem;margin-bottom:.75rem;border:1px solid var(--border);border-radius:6px;font-size:.9rem;font-family:'Inter',sans-serif;box-sizing:border-box;color:var(--ink);}
@@ -377,6 +378,7 @@ label.label-error{color:var(--danger)!important;}
 <!-- LOGIN -->
 <div class="login-overlay" id="loginOverlay">
   <div class="login-card">
+    <img class="login-logo" id="loginLogo" alt="">
     <h2>Sacrament Registry</h2>
     <div class="login-sub">St. Thomas Syro-Malabar Catholic<br>Forane Church &middot; Orange, CA</div>
     <div class="login-error" id="loginError"></div>
@@ -409,6 +411,8 @@ var auth = null, db = null, currentUser = null;
 try {
   firebase.initializeApp(firebaseConfig);
   auth = firebase.auth();
+  // Stay signed in only for the current browser session; closing the browser logs out.
+  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(function(){});
   db = firebase.firestore();
 } catch(e) {}
 </script>
@@ -656,6 +660,9 @@ function hasOtherSacraments(r) {
   });
 }
 
+// Ensure an abbreviation like "St.Thomas" prints with a space: "St. Thomas".
+function fixStAbbrev(s){ return (s||'').replace(/\bSt\.(?=\S)/g,'St. '); }
+
 function buildBackOverlays(r, fs) {
   var html = '';
   SAC_KEYS.forEach(function(k){
@@ -670,6 +677,7 @@ function buildBackOverlays(r, fs) {
     if (k==='religious')    { line2 = churchLoc(r.relChurch, r.relLocation); line3 = r.relOrder||''; }
     [dateStr, line2, line3].forEach(function(text, i){
       if (!text) return;
+      if (i>0) text = fixStAbbrev(text);  // normalize church/location lines, not the date
       var top = CERT_FIELDS_P2[k][i] - P2_LINE_OFFSET;
       html += '<div class="cert-field" style="left:'+P2_FIELD_X+'%;top:'+top+'%;width:'+P2_FIELD_W+'%;font-size:'+fs+';">'+text+'</div>';
     });
@@ -1123,6 +1131,9 @@ function doLogin(){
 }
 
 function doLogout(){ if(auth) auth.signOut(); }
+
+// Reuse the header logo image on the login card (avoids duplicating the base64 data).
+(function(){var s=document.querySelector('.header-logo');var l=document.getElementById('loginLogo');if(s&&l)l.src=s.src;})();
 
 if(auth){
   auth.onAuthStateChanged(function(user){
